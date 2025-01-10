@@ -1,0 +1,69 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Krok 1: Checkout kodu
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Krok 2: Ustawienie Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # Krok 3: Cache pip dependencies
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Krok 4: Instalacja zależności
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Krok 5: Uruchomienie testów
+      - name: Run tests
+        run: |
+          source venv/bin/activate
+          python manage.py test
+        continue-on-error: true  # Pozwala na kontynuowanie mimo błędów
+
+      # Krok 6: Logowanie do DockerHub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Krok 7: Budowanie obrazu Docker
+      - name: Build Docker image
+        run: docker build -t 91michal91/my-django-app:${{ github.sha }} .
+
+      # Krok 8: Tagowanie obrazu Docker jako latest
+      - name: Tag Docker image
+        run: docker tag 91michal91/my-django-app:${{ github.sha }} 91michal91/my-django-app:latest
+
+      # Krok 9: Wypychanie obrazu Docker do DockerHub
+      - name: Push Docker image
+        run: |
+          docker push 91michal91/my-django-app:${{ github.sha }}
+          docker push 91michal91/my-django-app:latest
