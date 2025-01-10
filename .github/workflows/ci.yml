@@ -1,51 +1,59 @@
-name: CI
+name: CI/CD Pipeline
 
-# 1. Uruchamiaj na pull_request i push do main
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  build-and-test:
+  build-and-push:
     runs-on: ubuntu-latest
+
     steps:
-      # 1. Pobranie kodu z repozytorium
-      - name: Check out code
+      # Krok 1: Checkout kodu
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Ustawienie wersji Pythona
+      # Krok 2: Ustawienie Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # 3. Instalacja zależności (opcjonalna – np. do uruchomienia testów wewnątrz środowiska GH)
+      # Krok 3: Instalacja zależności
       - name: Install dependencies
         run: |
-          pip install --no-cache-dir -r requirements.txt
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-      # 4. Krok testów – symbolicznie używamy "echo"
+      # Krok 4: Uruchomienie testów
       - name: Run tests
-        run: echo "Test"
+        run: |
+          source venv/bin/activate
+          python manage.py test
 
-      # 5. Zalogowanie do DockerHub (tylko przy push do main)
+      # Krok 5: Logowanie do DockerHub
       - name: Log in to DockerHub
-        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 6. Budowanie obrazu Dockera
+      # Krok 6: Budowanie obrazu Docker
       - name: Build Docker image
-        run: docker build -t my-django-app .
+        run: docker build -t 91michal91/my-django-app:${{ github.sha }} .
 
-      # 7. Tagi obrazu i push do DockerHub (tylko przy push do main)
+      # Krok 7: Tagowanie obrazu Docker jako latest
+      - name: Tag Docker image
+        run: docker tag 91michal91/my-django-app:${{ github.sha }} 91michal91/my-django-app:latest
+
+      # Krok 8: Wypychanie obrazu Docker do DockerHub
       - name: Push Docker image
-        if: github.ref == 'refs/heads/main'
         run: |
-          # Ustal, gdzie chcesz wrzucić obraz – np. "docker.io/<twoja_nazwa>/my-django-app"
-          docker tag my-django-app ${{ secrets.DOCKERHUB_USERNAME }}/my-django-app:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-django-app:latest
+          docker push 91michal91/my-django-app:${{ github.sha }}
+          docker push 91michal91/my-django-app:latest
