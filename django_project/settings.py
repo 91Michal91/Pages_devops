@@ -29,7 +29,7 @@ ALLOWED_HOSTS = []
 
 # new branch
 # Application definition
-
+# Nowe komentarze dla nowej gałęzi
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
